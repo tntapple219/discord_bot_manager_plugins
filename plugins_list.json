@@ -1,1 +1,7 @@
-
+[
+    {
+        "name": "PingCommand",
+        "description": "一個基本的 Ping 延遲檢測指令",
+        "folder_url": "https://raw.githubusercontent.com/tntapple219/discord_bot_manager_plugins/main/ping"
+    }
+]
