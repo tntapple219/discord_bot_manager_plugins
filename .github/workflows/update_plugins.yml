@@ -1,22 +1,17 @@
 name: Update Plugins List
 
 on:
-  # 當有程式碼推送到 main 分支時觸發 (最即時)
   push:
     branches:
       - main
     paths-ignore:
-      - 'plugins_list.json' # 避免自己更新自己造成無窮迴圈
-  
-  # 設定排程：每分鐘嘗試執行一次 (實際上可能會有延遲)
+      - 'plugins_list.json' # 避免無窮迴圈
   schedule:
-    - cron: '*/1 * * * *'
-  
-  # 允許手動在網頁上點擊按鈕觸發
+    - cron: '*/5 * * * *' # 每5分鐘檢查一次 (Github Action 最短間隔建議)
   workflow_dispatch:
 
 permissions:
-  contents: write # 給予寫入權限以便更新 plugins_list.json
+  contents: write
 
 jobs:
   build:
@@ -33,51 +28,48 @@ jobs:
 
     - name: Generate plugins_list.json
       env:
-        # 自動取得當前倉庫名稱 (例如 User/Repo)
         REPO_NAME: ${{ github.repository }}
-        # 自動取得當前分支名稱
         BRANCH_NAME: ${{ github.ref_name }}
       run: |
         python -c "
         import os
         import json
 
-        # 設定倉庫的 Raw URL 前綴
+        # 設定基礎 URL
         repo = os.environ['REPO_NAME']
         branch = os.environ['BRANCH_NAME']
         base_url = f'https://raw.githubusercontent.com/{repo}/{branch}'
 
         plugins = []
         
-        # 遍歷當前目錄下的所有資料夾
+        # 遍歷目錄
         for folder in os.listdir('.'):
-            # 忽略隱藏資料夾 (.git, .github 等) 和非資料夾
             if folder.startswith('.') or not os.path.isdir(folder):
                 continue
 
             info_path = os.path.join(folder, 'info.json')
             main_path = os.path.join(folder, 'main.py')
 
-            # 核心檢查：必須同時擁有 info.json 和 main.py
+            # 檢查必要檔案
             if os.path.exists(info_path) and os.path.exists(main_path):
                 print(f'Found plugin: {folder}')
                 
                 try:
-                    # 嘗試讀取 info.json 來獲取詳細資訊
                     with open(info_path, 'r', encoding='utf-8') as f:
                         info_data = json.load(f)
                         
-                    # 建立資料結構
+                    # --- 這裡新增讀取 version ---
                     plugin_data = {
                         'name': info_data.get('name', folder),
                         'description': info_data.get('description', 'No description provided.'),
+                        'version': info_data.get('version', '1.0.0'), # 讀取版本，預設為 1.0.0
                         'folder_url': f'{base_url}/{folder}'
                     }
                     plugins.append(plugin_data)
                 except Exception as e:
                     print(f'Error reading {folder}/info.json: {e}')
 
-        # 將結果寫入 plugins_list.json
+        # 寫入結果
         with open('plugins_list.json', 'w', encoding='utf-8') as f:
             json.dump(plugins, f, indent=4, ensure_ascii=False)
         
@@ -87,5 +79,5 @@ jobs:
     - name: Commit and Push if changed
       uses: stefanzweifel/git-auto-commit-action@v5
       with:
-        commit_message: "Auto-update plugins_list.json [skip ci]"
+        commit_message: "Auto-update plugins_list.json with versions [skip ci]"
         file_pattern: plugins_list.json
