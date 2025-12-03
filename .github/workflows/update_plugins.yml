@@ -5,9 +5,9 @@ on:
     branches:
       - main
     paths-ignore:
-      - 'plugins_list.json' # 避免無窮迴圈
+      - 'plugins_list.json' # 避免自己更新自己造成無窮迴圈
   schedule:
-    - cron: '*/5 * * * *' # 每5分鐘檢查一次 (Github Action 最短間隔建議)
+    - cron: '*/5 * * * *' # 每5分鐘檢查一次
   workflow_dispatch:
 
 permissions:
@@ -42,34 +42,37 @@ jobs:
 
         plugins = []
         
-        # 遍歷目錄
+        # 遍歷當前目錄下的所有資料夾
         for folder in os.listdir('.'):
+            # 忽略隱藏資料夾和非資料夾
             if folder.startswith('.') or not os.path.isdir(folder):
                 continue
 
             info_path = os.path.join(folder, 'info.json')
             main_path = os.path.join(folder, 'main.py')
 
-            # 檢查必要檔案
+            # 核心檢查：必須同時擁有 info.json 和 main.py
             if os.path.exists(info_path) and os.path.exists(main_path):
                 print(f'Found plugin: {folder}')
                 
                 try:
+                    # 1. 讀取 info.json 的所有內容
                     with open(info_path, 'r', encoding='utf-8') as f:
-                        info_data = json.load(f)
-                        
-                    # --- 這裡新增讀取 version ---
-                    plugin_data = {
-                        'name': info_data.get('name', folder),
-                        'description': info_data.get('description', 'No description provided.'),
-                        'version': info_data.get('version', '1.0.0'), # 讀取版本，預設為 1.0.0
-                        'folder_url': f'{base_url}/{folder}'
-                    }
+                        plugin_data = json.load(f)
+                    
+                    # 2. 確保有名稱，如果沒寫就用資料夾名當作名稱
+                    if 'name' not in plugin_data:
+                        plugin_data['name'] = folder
+
+                    # 3. 插入系統生成的下載連結 (folder_url)
+                    # 這樣就保留了 info.json 裡原本的所有欄位 (author, version, options...)
+                    plugin_data['folder_url'] = f'{base_url}/{folder}'
+                    
                     plugins.append(plugin_data)
                 except Exception as e:
                     print(f'Error reading {folder}/info.json: {e}')
 
-        # 寫入結果
+        # 將結果寫入 plugins_list.json
         with open('plugins_list.json', 'w', encoding='utf-8') as f:
             json.dump(plugins, f, indent=4, ensure_ascii=False)
         
@@ -79,5 +82,5 @@ jobs:
     - name: Commit and Push if changed
       uses: stefanzweifel/git-auto-commit-action@v5
       with:
-        commit_message: "Auto-update plugins_list.json with versions [skip ci]"
+        commit_message: "Auto-update plugins_list.json (Full Info) [skip ci]"
         file_pattern: plugins_list.json
