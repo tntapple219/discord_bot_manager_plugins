@@ -1,5 +1,6 @@
 {
     "name": "PingCommand",
+    "version": "1.0.0",   
     "author": "TNTAPPLE",
     "description": "一個基本的 Ping 延遲檢測指令",
     "dependencies": [],
